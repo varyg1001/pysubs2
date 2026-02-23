@@ -187,7 +187,7 @@ class SubstationFormat(FormatBase):
             return None
 
     @classmethod
-    def from_file(cls, subs: "SSAFile", fp: TextIO, format_: str, **kwargs: Any) -> None:
+    def from_file(cls, subs: "SSAFile", fp: TextIO, format_: str, keep_original_notice = False, **kwargs: Any) -> None:
         """See :meth:`pysubs2.formats.FormatBase.from_file()`"""
 
         def string_to_field(f: str, v: str) -> Any:
@@ -246,6 +246,7 @@ class SubstationFormat(FormatBase):
         subs.styles.clear()
         subs.fonts_opaque.clear()
         subs.graphics_opaque.clear()
+        subs.keep_original_notice = keep_original_notice
 
         inside_info_section = False
         inside_aegisub_section = False
@@ -266,15 +267,22 @@ class SubstationFormat(FormatBase):
                 inside_graphic_section = "Graphics" in line
             elif inside_info_section or inside_aegisub_section:
                 if line.startswith(";"):
-                    continue  # skip comments
-                try:
-                    k, v = line.split(":", 1)
                     if inside_info_section:
-                        subs.info[k] = v.strip()
-                    elif inside_aegisub_section:
-                        subs.aegisub_project[k] = v.strip()
-                except ValueError:
-                    pass
+                        if subs.info.get("Notice"):
+                            subs.info["Notice"] += "\n" + line
+                        else:
+                            subs.info["Notice"] = line
+                    else:
+                        continue
+                else:
+                    try:
+                        k, v = line.split(":", 1)
+                        if inside_info_section:
+                            subs.info[k] = v.strip()
+                        elif inside_aegisub_section:
+                            subs.aegisub_project[k] = v.strip()
+                    except ValueError:
+                        pass
             elif inside_font_section or inside_graphic_section:
                 m = ATTACHMENT_FILE_HEADING.match(line)
                 current_attachment_is_font = inside_font_section
@@ -332,12 +340,18 @@ class SubstationFormat(FormatBase):
     def to_file(cls, subs: "SSAFile", fp: TextIO, format_: str, header_notice: str = NOTICE, **kwargs: Any) -> None:
         """See :meth:`pysubs2.formats.FormatBase.to_file()`"""
         print("[Script Info]", file=fp)
-        for line in header_notice.splitlines(False):
-            print(";", line, file=fp)
+        if subs.keep_original_notice and (notice := subs.info.get("Notice")):
+            print(notice, file=fp)
+        else:
+            for line in header_notice.splitlines(False):
+                print(";", line, file=fp)
 
         subs.info["ScriptType"] = "v4.00+" if format_ == "ass" else "v4.00"
         for k, v in subs.info.items():
-            print(k, v, sep=": ", file=fp)
+            if k == "Notice":
+                continue
+            else:
+                print(k, v, sep=": ", file=fp)
 
         if subs.aegisub_project:
             print("\n[Aegisub Project Garbage]", file=fp)
