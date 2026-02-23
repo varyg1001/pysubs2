@@ -110,7 +110,7 @@ class SSAFile(MutableSequence[SSAEvent]):
 
         """
         with open(path, encoding=encoding, errors=errors) as fp:
-            return cls.from_file(fp, format_, fps=fps, **kwargs)
+            return cls.from_file(fp, format_, fps=fps, keep_original_notice=keep_original_notice, **kwargs)
 
     @classmethod
     def from_string(cls, string: str, format_: Optional[str] = None, fps: Optional[float] = None,
@@ -191,7 +191,7 @@ class SSAFile(MutableSequence[SSAEvent]):
         subs = cls() # an empty subtitle file
         subs.format = format_
         subs.fps = fps
-        impl.from_file(subs, fp, format_, fps=fps, keep_original_notice=keep_original_notice, **kwargs)
+        impl.from_file(subs, fp, format_, fps=fps, **kwargs)
         return subs
 
     def save(self, path: str, encoding: str = "utf-8", format_: Optional[str] = None, fps: Optional[float] = None,
