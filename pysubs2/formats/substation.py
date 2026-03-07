@@ -205,6 +205,11 @@ class SubstationFormat(FormatBase):
                 else:
                     sign = 1
 
+                if ":-" in v:
+                    # handle negative (wtf CR)
+                    # TODO: should be skipped altogether alongside if start < end
+                    v = v.replace(":-", ":")
+
                 m = TIMESTAMP.match(v)
                 if m is None:
                     m = TIMESTAMP_SHORT.match(v)
