@@ -494,3 +494,54 @@ def test_empty_layer_issue_87() -> None:
     with pytest.warns(RuntimeWarning, match="Failed to parse layer"):
         subs = SSAFile.from_string(ASS_EMPTY_LAYERS_ISSUE_87)
     assert subs[0].layer == 0
+
+def test_keep_original_notice():
+    ass_content = """[Script Info]
+; Original Notice Line 1
+; Original Notice Line 2
+Title: Example
+ScriptType: v4.00+
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,Hello
+"""
+    # Test with keep_original_notice=True
+    subs = SSAFile.from_string(ass_content, keep_original_notice=True)
+    assert "Notice" in subs.info
+    assert "; Original Notice Line 1" in subs.info["Notice"]
+    assert "; Original Notice Line 2" in subs.info["Notice"]
+
+    out = subs.to_string("ass")
+    assert "; Original Notice Line 1" in out
+    assert "; Original Notice Line 2" in out
+    assert "Notice:" not in out # Ensure it's not printed as Notice: ...
+
+    # Test with keep_original_notice=False (default)
+    subs2 = SSAFile.from_string(ass_content)
+    assert "Notice" not in subs2.info
+    out2 = subs2.to_string("ass")
+    assert "; Original Notice Line 1" not in out2
+    assert "pysubs2" in out2 # Default notice
+
+def test_malformed_timestamp_fix():
+    # Test for the ":-" fix in SubStation timestamps
+    ass_content = """[Script Info]
+ScriptType: v4.00+
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:-1.00,0:00:02.00,Default,,0,0,0,,Hello
+"""
+    subs = SSAFile.from_string(ass_content)
+    # 0:00:-1.00 becomes 0:00:1.00 which is 1000ms
+    assert subs[0].start == 1000
+    assert subs[0].end == 2000

@@ -61,15 +61,7 @@ class SSAFile(MutableSequence[SSAEvent]):
         self.graphics_opaque = {}
         self.fps = None
         self.format = None
-        self.events: List[SSAEvent] = []  #: List of :class:`SSAEvent` instances, ie. individual subtitles.
-        self.styles: Dict[str, SSAStyle] = {"Default": SSAStyle.DEFAULT_STYLE.copy()}  #: Dict of :class:`SSAStyle` instances.
-        self.info: Dict[str, str] = self.DEFAULT_INFO.copy()  #: Dict with script metadata, ie. ``[Script Info]``.
-        self.aegisub_project: Dict[str, str] = {}  #: Dict with Aegisub project, ie. ``[Aegisub Project Garbage]``.
-        self.fonts_opaque: Dict[str, Any] = {}  #: Dict with embedded fonts, ie. ``[Fonts]``.
-        self.graphics_opaque: Dict[str, Any] = {}  #: Dict with embedded images, ie. ``[Graphics]``.
-        self.fps: Optional[float] = None  #: Framerate used when reading the file, if applicable.
-        self.format: Optional[str] = None  #: Format of source subtitle file, if applicable, eg. ``"srt"``.
-        self.keep_original_notice: bool = False  #: Keep notice from original file
+        self.keep_original_notice = False
 
     # ------------------------------------------------------------------------
     # I/O methods
@@ -77,9 +69,7 @@ class SSAFile(MutableSequence[SSAEvent]):
 
     @classmethod
     def load(cls, path: PathOrStr, encoding: str = "utf-8", format_: Optional[str] = None, fps: Optional[float] = None,
-             errors: Optional[str] = None, **kwargs: Any) -> "SSAFile":
-    def load(cls, path: str, encoding: str = "utf-8", format_: Optional[str] = None, fps: Optional[float] = None,
-             errors: Optional[str] = None, keep_original_notice = False, **kwargs: Any) -> "SSAFile":
+             errors: Optional[str] = None, keep_original_notice: bool = False, **kwargs: Any) -> "SSAFile":
         """
         Load subtitle file from given path.
 
@@ -114,6 +104,9 @@ class SSAFile(MutableSequence[SSAEvent]):
                 be detected from the file, in which case you don't need
                 to specify it here (when given, this argument overrides
                 autodetection).
+            keep_original_notice (bool): If True, the parser will try to preserve
+                original header comments (the notice). This is currently only
+                supported by the SubStation format.
             kwargs: Extra options for the reader.
 
         Returns:
@@ -138,13 +131,11 @@ class SSAFile(MutableSequence[SSAEvent]):
 
         """
         with Path(path).open(encoding=encoding, errors=errors) as fp:
-            return cls.from_file(fp, format_, fps=fps, **kwargs)
-        with open(path, encoding=encoding, errors=errors) as fp:
             return cls.from_file(fp, format_, fps=fps, keep_original_notice=keep_original_notice, **kwargs)
 
     @classmethod
     def from_string(cls, string: str, format_: Optional[str] = None, fps: Optional[float] = None,
-                    **kwargs: Any) -> "SSAFile":
+                    keep_original_notice: bool = False, **kwargs: Any) -> "SSAFile":
         """
         Load subtitle file from string.
 
@@ -161,6 +152,10 @@ class SSAFile(MutableSequence[SSAEvent]):
                 be detected from the file, in which case you don't need
                 to specify it here (when given, this argument overrides
                 autodetection).
+            keep_original_notice (bool): If True, the parser will try to preserve
+                original header comments (the notice). This is currently only
+                supported by the SubStation format.
+            kwargs: Extra options for the reader.
 
         Returns:
             SSAFile
@@ -175,11 +170,11 @@ class SSAFile(MutableSequence[SSAEvent]):
 
         """
         fp = io.StringIO(string)
-        return cls.from_file(fp, format_, fps=fps, **kwargs)
+        return cls.from_file(fp, format_, fps=fps, keep_original_notice=keep_original_notice, **kwargs)
 
     @classmethod
     def from_file(cls, fp: TextIO, format_: Optional[str] = None, fps: Optional[float] = None,
-                  keep_original_notice = False, **kwargs: Any) -> "SSAFile":
+                  keep_original_notice: bool = False, **kwargs: Any) -> "SSAFile":
         """
         Read subtitle file from file object.
 
@@ -201,13 +196,14 @@ class SSAFile(MutableSequence[SSAEvent]):
                 be detected from the file, in which case you don't need
                 to specify it here (when given, this argument overrides
                 autodetection).
+            keep_original_notice (bool): If True, the parser will try to preserve
+                original header comments (the notice). This is currently only
+                supported by the SubStation format.
 
         Returns:
             SSAFile
 
         """
-        kwargs["keep_original_notice"] = keep_original_notice
-
         if format_ is None:
             # Autodetect subtitle format, then read again using correct parser.
             # The file might be a pipe and we need to read it twice,
@@ -221,6 +217,7 @@ class SSAFile(MutableSequence[SSAEvent]):
         subs = cls() # an empty subtitle file
         subs.format = format_
         subs.fps = fps
+        subs.keep_original_notice = keep_original_notice
         impl.from_file(subs, fp, format_, fps=fps, **kwargs)
         return subs
 
